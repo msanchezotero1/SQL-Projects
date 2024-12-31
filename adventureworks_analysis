@@ -1,0 +1,181 @@
+/* 
+    Query 1: Total revenue from online and in-store sales. 
+    This query calculates the total revenue generated from sales 
+    classified by sales channel (Online or In-Store).
+*/
+SELECT 
+    CASE 
+        WHEN OnlineOrderFlag = 1 THEN 'Online' 
+        ELSE 'In-Store' 
+    END AS Sales_Channel,
+    SUM(TotalDue) AS Total_Revenue
+FROM 
+    Sales.SalesOrderHeader
+GROUP BY 
+    CASE 
+        WHEN OnlineOrderFlag = 1 THEN 'Online' 
+        ELSE 'In-Store' 
+    END;
+
+/* 
+    Query 2: Total number of orders placed by customers for both online and in-store sales.
+    This query counts the total number of orders for each sales channel 
+    to assess the order volume.
+*/
+SELECT 
+    CASE 
+        WHEN OnlineOrderFlag = 1 THEN 'Online' 
+        ELSE 'In-Store' 
+    END AS Sales_Channel,
+    COUNT(SalesOrderID) AS Total_Orders
+FROM 
+    Sales.SalesOrderHeader
+GROUP BY 
+    OnlineOrderFlag;
+
+/* 
+    Query 3: Average order value for online and in-store sales.
+    This query calculates the average order value for each sales channel,
+    providing insights into customer spending behavior.
+*/
+
+SELECT 
+    CASE 
+        WHEN OnlineOrderFlag = 1 THEN 'Online' 
+        ELSE 'In-Store' 
+    END AS Sales_Channel,
+    AVG(TotalDue) AS Avg_Order_Value
+FROM 
+    Sales.SalesOrderHeader
+GROUP BY 
+    OnlineOrderFlag;
+
+/* 
+    Query 4: Number of customers that made multiple purchases in each sales channel.
+    This query identifies the number of unique customers who have made 
+    more than one purchase in each sales channel.
+*/
+SELECT 
+    CASE 
+        WHEN OnlineOrderFlag = 1 THEN 'Online' 
+        ELSE 'In-Store' 
+    END AS Sales_Channel,
+    COUNT(DISTINCT CustomerID) AS Customers_With_Repeat_Purchases
+FROM 
+    Sales.SalesOrderHeader
+GROUP BY 
+    OnlineOrderFlag
+HAVING 
+    COUNT(SalesOrderID) > 1; 
+
+/* 
+    Query 5: This query provides insights into product performance by calculating
+    the total quantity sold and revenue generated for each product,
+    categorized quantity sold.
+*/
+SELECT 
+    Product.Name AS Product_Name,
+    SUM(OrderDetail.OrderQty) AS Total_Quantity_Sold,
+    SUM(OrderDetail.LineTotal) AS Total_Revenue,
+    CASE 
+        WHEN Sales.OnlineOrderFlag = 1 THEN 'Online' 
+        ELSE 'In-Store' 
+    END AS Sales_Channel
+FROM 
+    Sales.SalesOrderDetail AS OrderDetail
+JOIN 
+    Sales.SalesOrderHeader AS Sales ON OrderDetail.SalesOrderID = Sales.SalesOrderID
+JOIN 
+    Production.Product AS Product ON OrderDetail.ProductID = Product.ProductID
+GROUP BY 
+    Product.Name, Sales.OnlineOrderFlag
+ORDER BY 
+    Total_Quantity_Sold DESC;  
+
+
+/* 
+    Query 6: View of seasonal trends in both online and in-store sales,
+    organized by month in chronological order.
+    This query aggregates total revenue, total orders, and average transaction values
+    by month and sales channel, allowing for analysis of seasonal trends.
+*/
+SELECT 
+    YEAR(OrderDate) AS Order_Year,
+    MONTH(OrderDate) AS Order_Month,
+    CASE 
+        WHEN OnlineOrderFlag = 1 THEN 'Online' 
+        ELSE 'In-Store' 
+    END AS Sales_Channel,
+    SUM(TotalDue) AS Total_Revenue,
+    COUNT(SalesOrderID) AS Total_Orders,
+    AVG(TotalDue) AS Avg_Transaction_Value
+FROM 
+    Sales.SalesOrderHeader
+GROUP BY 
+    YEAR(OrderDate), MONTH(OrderDate), OnlineOrderFlag
+ORDER BY 
+    Order_Year, Order_Month;  
+/* This query is a consice version of query 6 and it identifies the best and worst performing months for each year 
+    in terms of revenue generated from sales. */
+WITH MonthlyRevenue AS (
+    SELECT 
+        YEAR(OrderDate) AS Order_Year,
+        MONTH(OrderDate) AS Order_Month,
+        SUM(TotalDue) AS Total_Revenue
+    FROM 
+        Sales.SalesOrderHeader
+    GROUP BY 
+        YEAR(OrderDate), MONTH(OrderDate)
+),
+RankedMonths AS (
+    SELECT 
+        Order_Year,
+        Order_Month,
+        Total_Revenue,
+        ROW_NUMBER() OVER (PARTITION BY Order_Year ORDER BY Total_Revenue DESC) AS Revenue_Rank_Desc,
+        ROW_NUMBER() OVER (PARTITION BY Order_Year ORDER BY Total_Revenue ASC) AS Revenue_Rank_Asc
+    FROM 
+        MonthlyRevenue
+)
+SELECT 
+    Order_Year,
+    MAX(CASE WHEN Revenue_Rank_Desc = 1 THEN Order_Month END) AS Best_Performing_Month,
+    MAX(CASE WHEN Revenue_Rank_Asc = 1 THEN Order_Month END) AS Worst_Performing_Month,
+    MAX(CASE WHEN Revenue_Rank_Desc = 1 THEN Total_Revenue END) AS Best_Performing_Revenue,
+    MAX(CASE WHEN Revenue_Rank_Asc = 1 THEN Total_Revenue END) AS Worst_Performing_Revenue
+FROM 
+    RankedMonths
+GROUP BY 
+    Order_Year
+ORDER BY 
+    Order_Year;
+
+/* 
+    Query 7: Quarterly sales revenue by year in chronological order.
+    This query calculates total revenue for each quarter of each year,
+    allowing for year-over-year comparison of quarterly performance.
+*/
+SELECT 
+    YEAR(OrderDate) AS Order_Year,
+    CASE 
+        WHEN MONTH(OrderDate) IN (1, 2, 3) THEN 'Q1'
+        WHEN MONTH(OrderDate) IN (4, 5, 6) THEN 'Q2'
+        WHEN MONTH(OrderDate) IN (7, 8, 9) THEN 'Q3'
+        ELSE 'Q4'
+    END AS Quarter,
+    SUM(TotalDue) AS Total_Revenue
+FROM 
+    Sales.SalesOrderHeader
+GROUP BY 
+    YEAR(OrderDate), 
+    CASE 
+        WHEN MONTH(OrderDate) IN (1, 2, 3) THEN 'Q1'
+        WHEN MONTH(OrderDate) IN (4, 5, 6) THEN 'Q2'
+        WHEN MONTH(OrderDate) IN (7, 8, 9) THEN 'Q3'
+        ELSE 'Q4'
+    END
+ORDER BY 
+    Order_Year, Quarter;
+
+
+
