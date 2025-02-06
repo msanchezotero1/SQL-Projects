@@ -4,7 +4,7 @@
 
 ## Files
 - `adventureworks_analysis.sql`: SQL script containing queries for data exploration, sales trends, and customer insights.
-- `Report SQL 2024 AdventureWorks.docx`: Detailed report summarizing the findings and SQL queries used.
+- `Report SQL 2024 AdventureWorks.pdf`: Detailed report summarizing the findings and SQL queries used.
 
 ## Key Analyses
 1. **Sales Performance:**
